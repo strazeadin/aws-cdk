@@ -1,15 +1,15 @@
-import cloudformation = require("@aws-cdk/aws-cloudformation");
-import cloudfront = require("@aws-cdk/aws-cloudfront");
-import iam = require("@aws-cdk/aws-iam");
-import lambda = require("@aws-cdk/aws-lambda");
-import s3 = require("@aws-cdk/aws-s3");
-import cdk = require("@aws-cdk/core");
-import { Token } from "@aws-cdk/core";
-import crypto = require('crypto');
-import fs = require('fs');
-import path = require("path");
+import * as cloudformation from '@aws-cdk/aws-cloudformation';
+import * as cloudfront from '@aws-cdk/aws-cloudfront';
+import * as iam from '@aws-cdk/aws-iam';
+import * as lambda from '@aws-cdk/aws-lambda';
+import * as s3 from '@aws-cdk/aws-s3';
+import * as cdk from '@aws-cdk/core';
+import * as crypto from 'crypto';
+import * as fs from 'fs';
+import * as path from 'path';
 import { ISource, SourceConfig } from "./source";
 
+const now = Date.now();
 const handlerCodeBundle = path.join(__dirname, "..", "lambda", "bundle.zip");
 const handlerSourceDirectory = path.join(__dirname, '..', 'lambda', 'src');
 
@@ -147,8 +147,9 @@ export interface BucketDeploymentProps {
   readonly serverSideEncryptionAwsKmsKeyId?: string;
   /**
    * System-defined x-amz-server-side-encryption-customer-algorithm metadata to be set on all objects in the deployment.
+   * Warning: This is not a useful parameter until this bug is fixed: https://github.com/aws/aws-cdk/issues/6080
    * @default - Not set.
-   * @see https://docs.aws.amazon.com/AmazonS3/latest/dev/UsingMetadata.html#SysMetadata
+   * @see https://docs.aws.amazon.com/AmazonS3/latest/dev/ServerSideEncryptionCustomerKeys.html#sse-c-how-to-programmatically-intro
    */
   readonly serverSideEncryptionCustomerAlgorithm?: string;
 }
@@ -162,8 +163,6 @@ export class BucketDeployment extends cdk.Construct {
     }
 
     const sourceHash = calcSourceHash(handlerSourceDirectory);
-    // tslint:disable-next-line: no-console
-    console.error({sourceHash});
 
     const handler = new lambda.SingletonFunction(this, 'CustomResourceHandler', {
       uuid: this.renderSingletonUuid(props.memoryLimit),
@@ -212,7 +211,7 @@ export class BucketDeployment extends cdk.Construct {
     // with this configuration. otherwise, it won't be possible to use multiple
     // configurations since we have a singleton.
     if (memoryLimit) {
-      if (Token.isUnresolved(memoryLimit)) {
+      if (cdk.Token.isUnresolved(memoryLimit)) {
         throw new Error(`Can't use tokens when specifying "memoryLimit" since we use it to identify the singleton custom resource handler`);
       }
 
@@ -256,38 +255,19 @@ function mapUserMetadata(metadata: UserDefinedObjectMetadata) {
 }
 
 function mapSystemMetadata(metadata: BucketDeploymentProps) {
-  function mapCacheControlDirective(cacheControl: CacheControl) {
-    const { value } = cacheControl;
-
-    if (typeof value === "string") { return value; }
-    if ("max-age" in value) { return `max-age=${value["max-age"].toSeconds()}`; }
-    if ("s-max-age" in value) { return `s-max-age=${value["s-max-age"].toSeconds()}`; }
-
-    throw new Error(`Unsupported cache-control directive ${value}`);
-  }
-  function mapExpires(expires: Expires) {
-    const { value } = expires;
-
-    if (typeof value === "string") { return value; }
-    if (value instanceof Date) { return value.toUTCString(); }
-    if (value instanceof cdk.Duration) { return new Date(Date.now() + value.toMilliseconds()).toUTCString(); }
-
-    throw new Error(`Unsupported expires ${expires}`);
-  }
-
   const res: { [key: string]: string } = {};
 
-  if (metadata.cacheControl) { res["cache-control"] = metadata.cacheControl.map(mapCacheControlDirective).join(", "); }
-  if (metadata.expires) { res.expires = mapExpires(metadata.expires); }
+  if (metadata.cacheControl) { res["cache-control"] = metadata.cacheControl.map(c => c.value).join(", "); }
+  if (metadata.expires) { res.expires = metadata.expires.value; }
   if (metadata.contentDisposition) { res["content-disposition"] = metadata.contentDisposition; }
   if (metadata.contentEncoding) { res["content-encoding"] = metadata.contentEncoding; }
   if (metadata.contentLanguage) { res["content-language"] = metadata.contentLanguage; }
   if (metadata.contentType) { res["content-type"] = metadata.contentType; }
-  if (metadata.serverSideEncryption) { res["server-side-encryption"] = metadata.serverSideEncryption; }
+  if (metadata.serverSideEncryption) { res.sse = metadata.serverSideEncryption; }
   if (metadata.storageClass) { res["storage-class"] = metadata.storageClass; }
-  if (metadata.websiteRedirectLocation) { res["website-redirect-location"] = metadata.websiteRedirectLocation; }
-  if (metadata.serverSideEncryptionAwsKmsKeyId) { res["ssekms-key-id"] = metadata.serverSideEncryptionAwsKmsKeyId; }
-  if (metadata.serverSideEncryptionCustomerAlgorithm) { res["sse-customer-algorithm"] = metadata.serverSideEncryptionCustomerAlgorithm; }
+  if (metadata.websiteRedirectLocation) { res["website-redirect"] = metadata.websiteRedirectLocation; }
+  if (metadata.serverSideEncryptionAwsKmsKeyId) { res["sse-kms-key-id"] = metadata.serverSideEncryptionAwsKmsKeyId; }
+  if (metadata.serverSideEncryptionCustomerAlgorithm) { res["sse-c-copy-source"] = metadata.serverSideEncryptionCustomerAlgorithm; }
 
   return Object.keys(res).length === 0 ? undefined : res;
 }
@@ -303,11 +283,11 @@ export class CacheControl {
   public static setPublic() { return new CacheControl("public"); }
   public static setPrivate() { return new CacheControl("private"); }
   public static proxyRevalidate() { return new CacheControl("proxy-revalidate"); }
-  public static maxAge(t: cdk.Duration) { return new CacheControl({ "max-age": t }); }
-  public static sMaxAge(t: cdk.Duration) { return new CacheControl({ "s-max-age": t }); }
+  public static maxAge(t: cdk.Duration) { return new CacheControl(`max-age=${t.toSeconds()}`); }
+  public static sMaxAge(t: cdk.Duration) { return new CacheControl(`s-max-age=${t.toSeconds()}`); }
   public static fromString(s: string) {  return new CacheControl(s); }
 
-  private constructor(public value: any) {}
+  private constructor(public readonly value: any) {}
 }
 
 /**
@@ -343,20 +323,23 @@ export class Expires {
    * Expire at the specified date
    * @param d date to expire at
    */
-  public static atDate(d: Date) { return new Expires(d); }
+  public static atDate(d: Date) { return new Expires(d.toUTCString()); }
+
   /**
    * Expire at the specified timestamp
    * @param t timestamp in unix milliseconds
    */
-  public static atTimestamp(t: number) { return new Expires(t); }
+  public static atTimestamp(t: number) { return Expires.atDate(new Date(t)); }
+
   /**
    * Expire once the specified duration has passed since deployment time
    * @param t the duration to wait before expiring
    */
-  public static after(t: cdk.Duration) { return new Expires(t); }
+  public static after(t: cdk.Duration) { return Expires.atDate(new Date(now + t.toMilliseconds())); }
+
   public static fromString(s: string) { return new Expires(s); }
 
-  private constructor(public value: any) {}
+  private constructor(public readonly value: any) {}
 }
 
 export interface UserDefinedObjectMetadata {

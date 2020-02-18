@@ -1,9 +1,9 @@
 import { expect, haveResource, MatchStyle } from '@aws-cdk/assert';
-import acm = require('@aws-cdk/aws-certificatemanager');
-import ec2 = require('@aws-cdk/aws-ec2');
-import cdk = require('@aws-cdk/core');
+import * as acm from '@aws-cdk/aws-certificatemanager';
+import * as ec2 from '@aws-cdk/aws-ec2';
+import * as cdk from '@aws-cdk/core';
 import { Test } from 'nodeunit';
-import elbv2 = require('../../lib');
+import * as elbv2 from '../../lib';
 import { FakeSelfRegisteringTarget } from '../helpers';
 
 export = {
@@ -155,7 +155,7 @@ export = {
     lb.addListener('Listener', {
       port: 443,
       protocol: elbv2.Protocol.TLS,
-      certificates: [ { certificateArn: cert.certificateArn } ],
+      certificates: [ elbv2.ListenerCertificate.fromCertificateManager(cert) ],
       sslPolicy: elbv2.SslPolicy.TLS12,
       defaultTargetGroups: [new elbv2.NetworkTargetGroup(stack, 'Group', { vpc, port: 80 })]
     });
@@ -226,6 +226,60 @@ export = {
     // THEN
     const validationErrors: string[] = (targetGroup as any).validate();
     test.deepEqual(validationErrors, ["Health check protocol 'UDP' is not supported. Must be one of [HTTP, HTTPS, TCP]"]);
+
+    test.done();
+  },
+
+  'validation error if invalid path health check protocol'(test: Test) {
+    const stack = new cdk.Stack();
+    const vpc = new ec2.Vpc(stack, 'Stack');
+    const lb = new elbv2.NetworkLoadBalancer(stack, 'LB', { vpc });
+    const listener = lb.addListener('PublicListener', { port: 80 });
+    const targetGroup = listener.addTargets('ECS', {
+      port: 80,
+      healthCheck: {
+        interval: cdk.Duration.seconds(60)
+      }
+    });
+
+    targetGroup.configureHealthCheck({
+      interval: cdk.Duration.seconds(30),
+      protocol: elbv2.Protocol.TCP,
+      path: '/'
+    });
+
+    // THEN
+    const validationErrors: string[] = (targetGroup as any).validate();
+    test.deepEqual(validationErrors, [
+      "'TCP' health checks do not support the path property. Must be one of [HTTP, HTTPS]"
+    ]);
+
+    test.done();
+  },
+
+  'validation error if invalid timeout health check'(test: Test) {
+    const stack = new cdk.Stack();
+    const vpc = new ec2.Vpc(stack, 'Stack');
+    const lb = new elbv2.NetworkLoadBalancer(stack, 'LB', { vpc });
+    const listener = lb.addListener('PublicListener', { port: 80 });
+    const targetGroup = listener.addTargets('ECS', {
+      port: 80,
+      healthCheck: {
+        interval: cdk.Duration.seconds(60)
+      }
+    });
+
+    targetGroup.configureHealthCheck({
+      interval: cdk.Duration.seconds(30),
+      protocol: elbv2.Protocol.HTTP,
+      timeout: cdk.Duration.seconds(10),
+    });
+
+    // THEN
+    const validationErrors: string[] = (targetGroup as any).validate();
+    test.deepEqual(validationErrors, [
+      "Custom health check timeouts are not supported for Network Load Balancer health checks. Expected 6 seconds for HTTP, got 10"
+    ]);
 
     test.done();
   },

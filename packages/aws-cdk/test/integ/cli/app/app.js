@@ -7,6 +7,8 @@ const sns = require('@aws-cdk/aws-sns');
 const lambda = require('@aws-cdk/aws-lambda');
 const docker = require('@aws-cdk/aws-ecr-assets');
 
+const stackPrefix = process.env.STACK_NAME_PREFIX || 'cdk-toolkit-integration';
+
 class MyStack extends cdk.Stack {
   constructor(parent, id, props) {
     super(parent, id, props);
@@ -84,7 +86,7 @@ class LambdaStack extends cdk.Stack {
 
     const fn = new lambda.Function(this, 'my-function', {
       code: lambda.Code.asset(path.join(__dirname, 'lambda')),
-      runtime: lambda.Runtime.NODEJS_8_10,
+      runtime: lambda.Runtime.NODEJS_10_X,
       handler: 'index.handler'
     });
 
@@ -102,8 +104,20 @@ class DockerStack extends cdk.Stack {
   }
 }
 
+class DockerStackWithCustomFile extends cdk.Stack {
+  constructor(parent, id, props) {
+    super(parent, id, props);
+
+    new docker.DockerImageAsset(this, 'image', {
+      directory: path.join(__dirname, 'docker'),
+      file: 'Dockerfile.Custom'
+    });
+  }
+
+}
+
 const VPC_TAG_NAME = 'custom-tag';
-const VPC_TAG_VALUE = 'bazinga!';
+const VPC_TAG_VALUE = `${stackPrefix}-bazinga!`;
 
 class DefineVpcStack extends cdk.Stack {
   constructor(parent, id, props) {
@@ -134,8 +148,6 @@ class ConditionalResourceStack extends cdk.Stack {
   }
 }
 
-const stackPrefix = process.env.STACK_NAME_PREFIX || 'cdk-toolkit-integration';
-
 const app = new cdk.App();
 
 const defaultEnv = {
@@ -155,6 +167,7 @@ new MissingSSMParameterStack(app, `${stackPrefix}-missing-ssm-parameter`, { env:
 
 new LambdaStack(app, `${stackPrefix}-lambda`);
 new DockerStack(app, `${stackPrefix}-docker`);
+new DockerStackWithCustomFile(app, `${stackPrefix}-docker-with-custom-file`);
 
 if (process.env.ENABLE_VPC_TESTING) { // Gating so we don't do context fetching unless that's what we are here for
   const env = { account: process.env.CDK_DEFAULT_ACCOUNT, region: process.env.CDK_DEFAULT_REGION };

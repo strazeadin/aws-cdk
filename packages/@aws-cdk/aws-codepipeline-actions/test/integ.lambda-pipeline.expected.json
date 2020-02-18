@@ -19,7 +19,9 @@
                 "kms:Delete*",
                 "kms:ScheduleKeyDeletion",
                 "kms:CancelKeyDeletion",
-                "kms:GenerateDataKey"
+                "kms:GenerateDataKey",
+                "kms:TagResource",
+                "kms:UntagResource"
               ],
               "Effect": "Allow",
               "Principal": {
@@ -88,6 +90,7 @@
     "PipelineArtifactsBucket22248F97": {
       "Type": "AWS::S3::Bucket",
       "Properties": {
+        "PublicAccessBlockConfiguration" : {"BlockPublicAcls":true,"BlockPublicPolicy":true,"IgnorePublicAcls":true,"RestrictPublicBuckets":true},
         "BucketEncryption": {
           "ServerSideEncryptionConfiguration": [
             {
@@ -600,8 +603,20 @@
               ]
             },
             "eventName": [
+              "CompleteMultipartUpload",
+              "CopyObject",
               "PutObject"
-            ]
+            ],
+            "requestParameters": {
+              "bucketName": [
+                {
+                  "Ref": "PipelineBucketB967BD35"
+                }
+              ],
+              "key": [
+                "key"
+              ]
+            }
           }
         },
         "State": "ENABLED",
@@ -812,7 +827,7 @@
             "Arn"
           ]
         },
-        "Runtime": "nodejs8.10"
+        "Runtime": "nodejs10.x"
       },
       "DependsOn": [
         "LambdaFunServiceRoleDefaultPolicy217FED83",

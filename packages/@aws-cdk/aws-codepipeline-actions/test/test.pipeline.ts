@@ -1,15 +1,15 @@
 import { countResources, expect, haveResource, haveResourceLike, not, SynthUtils } from '@aws-cdk/assert';
-import codebuild = require('@aws-cdk/aws-codebuild');
-import codecommit = require('@aws-cdk/aws-codecommit');
-import codepipeline = require('@aws-cdk/aws-codepipeline');
-import targets = require('@aws-cdk/aws-events-targets');
-import iam = require('@aws-cdk/aws-iam');
-import lambda = require('@aws-cdk/aws-lambda');
-import s3 = require('@aws-cdk/aws-s3');
-import sns = require('@aws-cdk/aws-sns');
+import * as codebuild from '@aws-cdk/aws-codebuild';
+import * as codecommit from '@aws-cdk/aws-codecommit';
+import * as codepipeline from '@aws-cdk/aws-codepipeline';
+import * as targets from '@aws-cdk/aws-events-targets';
+import * as iam from '@aws-cdk/aws-iam';
+import * as lambda from '@aws-cdk/aws-lambda';
+import * as s3 from '@aws-cdk/aws-s3';
+import * as sns from '@aws-cdk/aws-sns';
 import { App, Aws, CfnParameter, ConstructNode, SecretValue, Stack } from '@aws-cdk/core';
 import { Test } from 'nodeunit';
-import cpactions = require('../lib');
+import * as cpactions from '../lib';
 
 // tslint:disable:object-literal-key-quotes
 
@@ -371,22 +371,6 @@ export = {
     test.done();
   },
 
-  'manual approval Action': {
-    'allows passing an SNS Topic when constructing it'(test: Test) {
-      const stack = new Stack();
-      const topic = new sns.Topic(stack, 'Topic');
-      const manualApprovalAction = new cpactions.ManualApprovalAction({
-        actionName: 'Approve',
-        notificationTopic: topic,
-      });
-      stageForTesting(stack).addAction(manualApprovalAction);
-
-      test.equal(manualApprovalAction.notificationTopic, topic);
-
-      test.done();
-    },
-  },
-
   'PipelineProject': {
     'with a custom Project Name': {
       'sets the source and artifacts to CodePipeline'(test: Test) {
@@ -429,7 +413,7 @@ export = {
     const lambdaFun = new lambda.Function(stack, 'Function', {
       code: new lambda.InlineCode('bla'),
       handler: 'index.handler',
-      runtime: lambda.Runtime.NODEJS_8_10,
+      runtime: lambda.Runtime.NODEJS_10_X,
     });
 
     const pipeline = new codepipeline.Pipeline(stack, 'Pipeline');
@@ -977,8 +961,3 @@ export = {
     },
   },
 };
-
-function stageForTesting(stack: Stack): codepipeline.IStage {
-  const pipeline = new codepipeline.Pipeline(stack, 'pipeline');
-  return pipeline.addStage({ stageName: 'stage' });
-}

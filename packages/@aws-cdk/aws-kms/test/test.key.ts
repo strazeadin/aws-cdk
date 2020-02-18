@@ -6,8 +6,7 @@ import {
   ResourcePart,
   SynthUtils
 } from '@aws-cdk/assert';
-import { PolicyStatement, User } from '@aws-cdk/aws-iam';
-import iam = require('@aws-cdk/aws-iam');
+import * as iam from '@aws-cdk/aws-iam';
 import { App, CfnOutput, RemovalPolicy, Stack, Tag } from '@aws-cdk/core';
 import { Test } from 'nodeunit';
 import { Key } from '../lib';
@@ -41,7 +40,9 @@ export = {
             "kms:Delete*",
             "kms:ScheduleKeyDeletion",
             "kms:CancelKeyDeletion",
-            "kms:GenerateDataKey"
+            "kms:GenerateDataKey",
+            "kms:TagResource",
+            "kms:UntagResource"
             ],
             Effect: "Allow",
             Principal: {
@@ -91,7 +92,7 @@ export = {
     const stack = new Stack(app, 'Test');
 
     const key = new Key(stack, 'MyKey');
-    const p = new PolicyStatement({ resources: ['*'], actions: ['kms:encrypt'] });
+    const p = new iam.PolicyStatement({ resources: ['*'], actions: ['kms:encrypt'] });
     p.addArnPrincipal('arn');
     key.addToResourcePolicy(p);
 
@@ -116,7 +117,9 @@ export = {
               "kms:Delete*",
               "kms:ScheduleKeyDeletion",
               "kms:CancelKeyDeletion",
-              "kms:GenerateDataKey"
+              "kms:GenerateDataKey",
+              "kms:TagResource",
+              "kms:UntagResource"
             ],
             Effect: "Allow",
             Principal: {
@@ -167,7 +170,7 @@ export = {
       enableKeyRotation: true,
       enabled: false,
     });
-    const p = new PolicyStatement({ resources: ['*'], actions: ['kms:encrypt'] });
+    const p = new iam.PolicyStatement({ resources: ['*'], actions: ['kms:encrypt'] });
     p.addArnPrincipal('arn');
     key.addToResourcePolicy(p);
 
@@ -196,7 +199,9 @@ export = {
                     "kms:Delete*",
                     "kms:ScheduleKeyDeletion",
                     "kms:CancelKeyDeletion",
-                    "kms:GenerateDataKey"
+                    "kms:GenerateDataKey",
+                    "kms:TagResource",
+                    "kms:UntagResource"
                   ],
                   Effect: "Allow",
                   Principal: {
@@ -291,7 +296,9 @@ export = {
                     "kms:Delete*",
                     "kms:ScheduleKeyDeletion",
                     "kms:CancelKeyDeletion",
-                    "kms:GenerateDataKey"
+                    "kms:GenerateDataKey",
+                    "kms:TagResource",
+                    "kms:UntagResource"
                   ],
                   Effect: "Allow",
                   Principal: {
@@ -376,7 +383,9 @@ export = {
                     "kms:Delete*",
                     "kms:ScheduleKeyDeletion",
                     "kms:CancelKeyDeletion",
-                    "kms:GenerateDataKey"
+                    "kms:GenerateDataKey",
+                    "kms:TagResource",
+                    "kms:UntagResource"
                   ],
                   Effect: "Allow",
                   Principal: {
@@ -440,7 +449,7 @@ export = {
     // GIVEN
     const stack = new Stack();
     const key = new Key(stack, 'Key');
-    const user = new User(stack, 'User');
+    const user = new iam.User(stack, 'User');
 
     // WHEN
     key.grantDecrypt(user);
@@ -452,7 +461,7 @@ export = {
           // This one is there by default
           {
             // tslint:disable-next-line:max-line-length
-            Action: [ "kms:Create*", "kms:Describe*", "kms:Enable*", "kms:List*", "kms:Put*", "kms:Update*", "kms:Revoke*", "kms:Disable*", "kms:Get*", "kms:Delete*", "kms:ScheduleKeyDeletion", "kms:CancelKeyDeletion", "kms:GenerateDataKey" ],
+            Action: [ "kms:Create*", "kms:Describe*", "kms:Enable*", "kms:List*", "kms:Put*", "kms:Update*", "kms:Revoke*", "kms:Disable*", "kms:Get*", "kms:Delete*", "kms:ScheduleKeyDeletion", "kms:CancelKeyDeletion", "kms:GenerateDataKey", "kms:TagResource", "kms:UntagResource" ],
             Effect: "Allow",
             Principal: { AWS: { "Fn::Join": [ "", [ "arn:", { Ref: "AWS::Partition" }, ":iam::", { Ref: "AWS::AccountId" }, ":root" ] ] } },
             Resource: "*"
@@ -597,7 +606,7 @@ export = {
         const key = Key.fromKeyArn(stack, 'Imported',
           'arn:aws:kms:us-east-1:123456789012:key/12345678-1234-1234-1234-123456789012');
 
-        key.addToResourcePolicy(new PolicyStatement({ resources: ['*'], actions: ['*'] }));
+        key.addToResourcePolicy(new iam.PolicyStatement({ resources: ['*'], actions: ['*'] }));
 
         test.done();
       },
@@ -609,7 +618,7 @@ export = {
           'arn:aws:kms:us-east-1:123456789012:key/12345678-1234-1234-1234-123456789012');
 
         test.throws(() => {
-          key.addToResourcePolicy(new PolicyStatement({ resources: ['*'], actions: ['*'] }), /* allowNoOp */ false);
+          key.addToResourcePolicy(new iam.PolicyStatement({ resources: ['*'], actions: ['*'] }), /* allowNoOp */ false);
         }, 'Unable to add statement to IAM resource policy for KMS key: "foo/bar"');
 
         test.done();

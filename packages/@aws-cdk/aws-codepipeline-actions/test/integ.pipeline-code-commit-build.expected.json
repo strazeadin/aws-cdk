@@ -136,6 +136,21 @@
             },
             {
               "Action": [
+                "kms:Decrypt",
+                "kms:Encrypt",
+                "kms:ReEncrypt*",
+                "kms:GenerateDataKey*"
+              ],
+              "Effect": "Allow",
+              "Resource": {
+                "Fn::GetAtt": [
+                  "PipelineArtifactsBucketEncryptionKey01D58D69",
+                  "Arn"
+                ]
+              }
+            },
+            {
+              "Action": [
                 "s3:GetObject*",
                 "s3:GetBucket*",
                 "s3:List*"
@@ -194,6 +209,12 @@
         "Artifacts": {
           "Type": "CODEPIPELINE"
         },
+        "EncryptionKey": {
+          "Fn::GetAtt": [
+            "PipelineArtifactsBucketEncryptionKey01D58D69",
+            "Arn"
+          ]
+        },
         "Environment": {
           "ComputeType": "BUILD_GENERAL1_SMALL",
           "Image": "aws/codebuild/standard:1.0",
@@ -230,7 +251,9 @@
                 "kms:Delete*",
                 "kms:ScheduleKeyDeletion",
                 "kms:CancelKeyDeletion",
-                "kms:GenerateDataKey"
+                "kms:GenerateDataKey",
+                "kms:TagResource",
+                "kms:UntagResource"
               ],
               "Effect": "Allow",
               "Principal": {
@@ -313,6 +336,24 @@
             {
               "Action": [
                 "kms:Decrypt",
+                "kms:Encrypt",
+                "kms:ReEncrypt*",
+                "kms:GenerateDataKey*"
+              ],
+              "Effect": "Allow",
+              "Principal": {
+                "AWS": {
+                  "Fn::GetAtt": [
+                    "MyBuildProjectRole6B7E2258",
+                    "Arn"
+                  ]
+                }
+              },
+              "Resource": "*"
+            },
+            {
+              "Action": [
+                "kms:Decrypt",
                 "kms:DescribeKey"
               ],
               "Effect": "Allow",
@@ -336,6 +377,7 @@
     "PipelineArtifactsBucket22248F97": {
       "Type": "AWS::S3::Bucket",
       "Properties": {
+        "PublicAccessBlockConfiguration" : {"BlockPublicAcls":true,"BlockPublicPolicy":true,"IgnorePublicAcls":true,"RestrictPublicBuckets":true},
         "BucketEncryption": {
           "ServerSideEncryptionConfiguration": [
             {
@@ -539,7 +581,8 @@
                 "Configuration": {
                   "ProjectName": {
                     "Ref": "MyBuildProject30DB9D6E"
-                  }
+                  },
+                  "EnvironmentVariables": "[{\"name\":\"TEST_ENV_VARIABLE\",\"type\":\"PLAINTEXT\",\"value\":\"test env variable value\"},{\"name\":\"PARAM_STORE_VARIABLE\",\"type\":\"PARAMETER_STORE\",\"value\":\"param_store\"}]"
                 },
                 "InputArtifacts": [
                   {
